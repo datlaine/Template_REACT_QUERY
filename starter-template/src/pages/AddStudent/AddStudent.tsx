@@ -1,14 +1,83 @@
+import { useMutation } from '@tanstack/react-query'
+import { addStudent } from 'apis/students.apis'
+import { useMemo, useState } from 'react'
+import { useMatch } from 'react-router-dom'
+import { IStudent } from 'types/students.type'
+import http from 'utils/http'
+import { isAxiosError } from 'utils/isAxiosError'
+
+type formState = Omit<IStudent, 'id'>
+const initialFromState: formState = {
+  first_name: '',
+  last_name: '',
+  email: '',
+  gender: 'other',
+  country: '',
+  avatar: '',
+  btc_address: ''
+}
+
+type errosForm =
+  | {
+      [key in keyof formState]: string
+    }
+  | null
+
 export default function AddStudent() {
+  const [formInput, setFormInput] = useState<formState>(initialFromState)
+
+  const { mutate, error, data, reset} = useMutation({
+    mutationFn: (body: formState) => {
+      return addStudent(body)
+    }
+  })
+  // là cái mình gửi lên -> k gửi thay gặp lỗi thì nó là undefined
+  console.log('data', data)
+
+  // error từ useMutetion là unKnow, cần đưa về type AxiosError,
+  // nhưng mà AxiosError có 2 cái generic tào lào làm req, thành undefined
+  // nên phải sửa lại nó
+  const handleError: errosForm = useMemo(() => {
+    if (isAxiosError<{ error: errosForm }>(error) && error.response?.status === 422) {
+      console.log(error.response.data.error)
+      return error.response.data.error
+    }
+    return null
+  }, [error])
+
+  const handleChange = (name: keyof formState) => (event: React.ChangeEvent<HTMLInputElement>) => {
+    setFormInput((prev) => ({
+      ...prev,
+      [name]: event.target.value
+    }))
+    if(data || error) {
+      reset()
+    }
+  }
+
+  const match = useMatch('/students/add')
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    mutate(formInput, {
+      onSuccess: () => {
+        setFormInput(initialFromState)
+        alert('đăng kí thành công')
+      }
+    })
+  }
+
   return (
     <div>
-      <h1 className='text-lg'>Add/Edit Student</h1>
-      <form className='mt-6'>
+      <h1 className='text-lg'>{match ? 'Add' : 'Edit'} Student</h1>
+      <form className='mt-6' onSubmit={handleSubmit}>
         <div className='group relative z-0 mb-6 w-full'>
           <input
-            type='email'
             name='floating_email'
             id='floating_email'
-            className='peer block w-full appearance-none border-0 border-b-2 border-gray-300 bg-transparent py-2.5 px-0 text-sm text-gray-900 focus:border-blue-600 focus:outline-none focus:ring-0 dark:border-gray-600 dark:text-white dark:focus:border-blue-500'
+            value={formInput.email}
+            onChange={handleChange('email')}
+            className='peer block w-full appearance-none border-0 border-b-2 border-gray-300 bg-transparent py-2.5 px-0 text-sm text-gray-900 focus:border-blue-600 focus:outline-none focus:ring-0 dark:border-gray-600  dark:focus:border-blue-500'
             placeholder=' '
             required
           />
@@ -18,6 +87,7 @@ export default function AddStudent() {
           >
             Email address
           </label>
+          {handleError && <h1>{handleError.email}</h1>}
         </div>
 
         <div className='group relative z-0 mb-6 w-full'>
@@ -28,6 +98,9 @@ export default function AddStudent() {
                   id='gender-1'
                   type='radio'
                   name='gender'
+                  value='male'
+                  checked={formInput.gender === 'male'}
+                  onChange={handleChange('gender')}
                   className='h-4 w-4 border-gray-300 bg-gray-100 text-blue-600 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:ring-offset-gray-800 dark:focus:ring-blue-600'
                 />
                 <label htmlFor='gender-1' className='ml-2 text-sm font-medium text-gray-900 dark:text-gray-300'>
@@ -36,10 +109,12 @@ export default function AddStudent() {
               </div>
               <div className='mb-4 flex items-center'>
                 <input
-                  defaultChecked
                   id='gender-2'
                   type='radio'
                   name='gender'
+                  value='female'
+                  onChange={handleChange('gender')}
+                  checked={formInput.gender === 'female'}
                   className='h-4 w-4 border-gray-300 bg-gray-100 text-blue-600 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:ring-offset-gray-800 dark:focus:ring-blue-600'
                 />
                 <label htmlFor='gender-2' className='ml-2 text-sm font-medium text-gray-900 dark:text-gray-300'>
@@ -48,10 +123,12 @@ export default function AddStudent() {
               </div>
               <div className='flex items-center'>
                 <input
-                  defaultChecked
                   id='gender-3'
                   type='radio'
                   name='gender'
+                  value='other'
+                  checked={formInput.gender === 'other'}
+                  onChange={handleChange('gender')}
                   className='h-4 w-4 border-gray-300 bg-gray-100 text-blue-600 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:ring-offset-gray-800 dark:focus:ring-blue-600'
                 />
                 <label htmlFor='gender-3' className='ml-2 text-sm font-medium text-gray-900 dark:text-gray-300'>
@@ -66,9 +143,11 @@ export default function AddStudent() {
             type='text'
             name='country'
             id='country'
-            className='peer block w-full appearance-none border-0 border-b-2 border-gray-300 bg-transparent py-2.5 px-0 text-sm text-gray-900 focus:border-blue-600 focus:outline-none focus:ring-0 dark:border-gray-600 dark:text-white dark:focus:border-blue-500'
+            className='peer block w-full appearance-none border-0 border-b-2 border-gray-300 bg-transparent py-2.5 px-0 text-sm text-gray-900 focus:border-blue-600 focus:outline-none focus:ring-0 dark:border-gray-600  dark:focus:border-blue-500'
             placeholder=' '
             required
+            value={formInput.country}
+            onChange={handleChange('country')}
           />
           <label
             htmlFor='country'
@@ -81,12 +160,13 @@ export default function AddStudent() {
           <div className='group relative z-0 mb-6 w-full'>
             <input
               type='tel'
-              pattern='[0-9]{3}-[0-9]{3}-[0-9]{4}'
               name='first_name'
               id='first_name'
-              className='peer block w-full appearance-none border-0 border-b-2 border-gray-300 bg-transparent py-2.5 px-0 text-sm text-gray-900 focus:border-blue-600 focus:outline-none focus:ring-0 dark:border-gray-600 dark:text-white dark:focus:border-blue-500'
+              className='peer block w-full appearance-none border-0 border-b-2 border-gray-300 bg-transparent py-2.5 px-0 text-sm text-gray-900 focus:border-blue-600 focus:outline-none focus:ring-0 dark:border-gray-600  dark:focus:border-blue-500'
               placeholder=' '
               required
+              value={formInput.first_name}
+              onChange={handleChange('first_name')}
             />
             <label
               htmlFor='first_name'
@@ -100,9 +180,11 @@ export default function AddStudent() {
               type='text'
               name='last_name'
               id='last_name'
-              className='peer block w-full appearance-none border-0 border-b-2 border-gray-300 bg-transparent py-2.5 px-0 text-sm text-gray-900 focus:border-blue-600 focus:outline-none focus:ring-0 dark:border-gray-600 dark:text-white dark:focus:border-blue-500'
+              className='peer block w-full appearance-none border-0 border-b-2 border-gray-300 bg-transparent py-2.5 px-0 text-sm text-gray-900 focus:border-blue-600 focus:outline-none focus:ring-0 dark:border-gray-600  dark:focus:border-blue-500'
               placeholder=' '
               required
+              value={formInput.last_name}
+              onChange={handleChange('last_name')}
             />
             <label
               htmlFor='last_name'
@@ -118,9 +200,11 @@ export default function AddStudent() {
               type='text'
               name='avatar'
               id='avatar'
-              className='peer block w-full appearance-none border-0 border-b-2 border-gray-300 bg-transparent py-2.5 px-0 text-sm text-gray-900 focus:border-blue-600 focus:outline-none focus:ring-0 dark:border-gray-600 dark:text-white dark:focus:border-blue-500'
+              className='peer block w-full appearance-none border-0 border-b-2 border-gray-300 bg-transparent py-2.5 px-0 text-sm text-gray-900 focus:border-blue-600 focus:outline-none focus:ring-0 dark:border-gray-600  dark:focus:border-blue-500'
               placeholder=' '
               required
+              value={formInput.avatar}
+              onChange={handleChange('avatar')}
             />
             <label
               htmlFor='avatar'
@@ -134,8 +218,10 @@ export default function AddStudent() {
               type='text'
               name='btc_address'
               id='btc_address'
-              className='peer block w-full appearance-none border-0 border-b-2 border-gray-300 bg-transparent py-2.5 px-0 text-sm text-gray-900 focus:border-blue-600 focus:outline-none focus:ring-0 dark:border-gray-600 dark:text-white dark:focus:border-blue-500'
+              className='peer block w-full appearance-none border-0 border-b-2 border-gray-300 bg-transparent py-2.5 px-0 text-sm text-gray-900 focus:border-blue-600 focus:outline-none focus:ring-0 dark:border-gray-600  dark:focus:border-blue-500'
               placeholder=' '
+              value={formInput.btc_address}
+              onChange={handleChange('btc_address')}
               required
             />
             <label
